@@ -40,7 +40,7 @@ ConformalHMM/
 ├── latent_regime_conformal_main.ipynb   # Main simulation: Algorithm 1 vs. Chernozhukov baseline
 ├── hmm_conformal_batched.ipynb          # Batched GPU implementation and additional experiments
 └── ConformalHMM_Manuscript/
-    └── main.tex                         # Paper (NeurIPS 2024 preprint format)
+    └── main.tex                         # Paper
 ```
 
 ---
