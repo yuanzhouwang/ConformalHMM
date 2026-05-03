@@ -1,0 +1,416 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{csquotes}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage[numbers,sort&compress]{natbib}
+
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=blue,urlcolor=blue}
+\setstretch{1.12}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+\setlength{\headheight}{14pt}
+
+\definecolor{accent}{HTML}{1E4E79}
+\titleformat{\section}{\large\bfseries\color{accent}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{accent}}{\thesubsection}{0.5em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Research Proposal}
+\fancyhead[R]{Synthetic Control, Conformal Inference, and Latent States}
+\fancyfoot[C]{\thepage}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{assumption}{Assumption}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Latent-State Conformal Prediction for Synthetic Control}}\\[0.5em]
+{\large Research Proposal}\\[0.75em]
+Andrew Wang\\
+University of Washington\\
+\vspace{0.5em}
+\end{center}
+
+\begin{abstract}
+This proposal develops a synthetic-control method for settings in which the untreated relationship between a treated unit and its donors is regime-dependent rather than globally stable. The motivating idea is simple. Standard synthetic control methods estimate a counterfactual by imposing a restricted prediction rule from donors to the treated unit. Chernozhukov, W\"uthrich, and Zhu add a conformal layer that yields valid uncertainty sets for counterfactual paths under weak residual stability conditions. But that method still treats post-treatment discrepancies as if they can be judged against pre-treatment discrepancies after permuting time labels, which is fragile when untreated residuals are themselves regime-dependent. Nettasinghe et al.\ provide a complementary result for Hidden Markov Models (HMMs): exact conformal validity can be recovered when one partitions a non-exchangeable Markov sequence into admissible exchangeable blocks. This proposal integrates those two insights. It argues that synthetic control is best understood as a partially nonparametric prediction problem in which identifying structure is imposed to make the counterfactual learnable, and then proposes to replace global donor weights and time-label permutation with latent-state-conditional prediction and admissible block permutation. The proposed method aims to recover exact finite-sample validity under explicit latent-state assumptions, while also addressing theoretical critiques of synthetic control that conformal synthetic control alone leaves unresolved.
+\end{abstract}
+
+\section{Motivation}
+
+Synthetic control methods estimate an untreated counterfactual for one or a small number of treated units by constructing a weighted combination of untreated donor units that fits the treated unit's pre-treatment trajectory \citep{Abadie2003,Abadie2010}. In the classical formulation, the synthetic control is a convex combination of donor units chosen to match pretreatment outcomes and covariates as closely as possible \citep{Abadie2010}. The appeal of this framework is that it converts a causal question into a prediction question: rather than modeling treatment assignment directly, one predicts what would have happened to the treated unit had treatment not occurred.
+
+In this way synthetic control is an inherently nonparametric prediction problem in which parametric structure is sometimes imposed to constrain the ways that donor units can be used to predict the untreated counterfactual of the treated unit. This constraint helps justify using the same Those restrictions are useful, but they are also where many of the method's limitations originate.
+
+Three critiques matter most for this proposal.
+
+\subsection{Critique 1: Global stability of the donor--treated mapping}
+
+Classical synthetic control effectively assumes that the untreated relationship between treated and donor units is stable over time. In the language of the STAT 535 paper, the key identifying claim is that \emph{the relationship between the treated unit and the donor units---reflected in outcome trajectories---is stable over time}. When this holds, one global set of donor weights can be learned in the pre-treatment period and transported into the post-treatment period. When it fails, classical synthetic control is misspecified.
+
+This problem motivates several extensions. Xu's generalized synthetic control relaxes parallel trends by modeling untreated outcomes with an interactive fixed-effects structure \citep{Xu2017}. Cao and Chadefaux argue that standard synthetic control fails when units move at different speeds; in their words, synthetic controls \enquote{do not account for the different speeds at which units respond to changes} and such speed differences can bias estimates \citep[p.~1]{Cao2025}. These papers point to the same general problem: the donor--treated mapping need not be globally time-invariant.
+
+\subsection{Critique 2: Convex-hull restrictions and imperfect pretreatment fit}
+
+The original estimator works best when the treated unit can be closely approximated by a convex combination of donors. This is a useful guard against extrapolation, but it can be too restrictive. Ben-Michael, Feller, and Rothstein emphasize that \enquote{a critical feature of the original proposal is to use SCM only when the fit on pretreatment outcomes is excellent} \citep[p.~1790]{BenMichael2021}. When such fit is infeasible, researchers either accept poor pre-treatment fit or move outside the donor convex hull by allowing negative weights.
+
+This is not a merely practical issue. Ferman and Pinto show that when pretreatment fit is imperfect, the synthetic control estimator is generally biased if treatment assignment is correlated with unobserved confounders, and that this bias need not disappear even with many pretreatment periods \citep{Ferman2021}. Thus imperfect fit is not only a warning sign. It is a threat to identification under precisely the latent-factor setting often used to justify the method.
+
+\subsection{Critique 3: Inference and uncertainty quantification}
+
+Synthetic control historically relied on placebo and permutation-style inference that is useful in practice but difficult to interpret as exact finite-sample uncertainty for a counterfactual path \citep{Abadie2010,Hahn2018,FirpoPossebom2018}. This is the critique Chernozhukov, W\"uthrich, and Zhu address most directly. They recast the problem as one of counterfactual prediction plus structural break testing, then build conformal confidence sets for counterfactual trajectories \citep{Chernozhukov2021}. Their contribution is major because it turns synthetic-control-style prediction into a formal uncertainty set rather than a single extrapolated line.
+
+However, their method still relies on a residual invariance idea across time. That is reasonable when untreated residuals are homogeneous enough, but it remains fragile when the untreated donor--treated mapping varies across latent regimes. That fragility creates the central opening for the proposed paper.
+
+\section{Literature Review}
+
+\subsection{Synthetic control as restricted prediction}
+
+A useful unifying lens is to write the untreated counterfactual as
+\[
+\widehat{Y}_{it}(0)=m(X_{it},Y_{-i,t}(0);\theta),
+\]
+where $m(\cdot)$ is a prediction rule, $Y_{-i,t}(0)$ denotes donor outcomes, $X_{it}$ observed covariates or lagged outcomes, and $\theta$ collects the identifying restrictions imposed to make the problem estimable. In this view, classical synthetic control, penalized synthetic control, generalized synthetic control, and dynamic synthetic control differ mainly in how they restrict the admissible class of prediction functions \citep{Abadie2010,AbadieLHour2021,Xu2017,Cao2025}.
+
+This framing is useful because it clarifies what later conformal methods do and do not solve. Conformal inference can attach uncertainty to the output of a prediction rule. It does not, by itself, repair misspecification in the prediction rule.
+
+\subsection{Chernozhukov, W\"uthrich, and Zhu}
+
+Chernozhukov, W\"uthrich, and Zhu propose \enquote{permutation inference procedures that accommodate modern high-dimensional estimators, are valid under weak and easy-to-verify conditions, and are provably robust against misspecification} \citep{Chernozhukov2021}. Their method works with many first-stage predictors, including synthetic controls, difference-in-differences, factor models, matrix completion, and related panel methods \citep{Chernozhukov2021}. This flexibility is one of its strengths: the conformal layer is largely agnostic about how the untreated mean is predicted, provided the residual process under the untreated null behaves appropriately.
+
+The intuition is straightforward. For each candidate untreated post-treatment path, one appends that path to the observed pre-treatment history, fits or evaluates the donor-based prediction rule, computes residuals over time, and asks whether the post-treatment residual pattern looks unusually large relative to permutations of the residual time labels. The conformal set consists of all candidate counterfactual paths not rejected by this test.
+
+This addresses the inference critique directly. It yields confidence sets for counterfactual trajectories rather than only point estimates. It also reduces dependence on ad hoc placebo logic and can be layered over many first-stage estimators.
+
+But it does \emph{not} address the more structural critiques above. In particular:
+
+\begin{enumerate}[label=(\alph*)]
+    \item It does not repair a misspecified donor--treated mapping. If the untreated relationship is regime-dependent, conformal inference still inherits the wrong first-stage structure.
+    \item It does not eliminate the problem of imperfect pre-treatment fit. It can report uncertainty around a poor predictor, but it does not make that predictor identified.
+    \item It does not directly address latent confounding or regime-dependent factor structure beyond whatever the first-stage predictor already captures.
+    \item It relies on a time-label permutation argument for residuals. That becomes theoretically fragile when untreated residuals differ systematically across latent regimes.
+\end{enumerate}
+
+Thus Chernozhukov's method solves the inference problem, but only partially the modeling problem.
+
+\subsection{Latent factor models and what conformal SCM still misses}
+
+Xu's generalized synthetic control addresses a different critique by replacing the global convex-combination logic with an interactive fixed-effects model \citep{Xu2017}. This method \enquote{relaxes} the often-violated parallel-trends assumption and allows treatment to correlate with unobserved unit and time heterogeneity under a structured low-rank model \citep[p.~57]{Xu2017}. Relative to classical synthetic control, generalized synthetic control can capture richer latent common shocks and multiple treated units, but it remains a smooth latent-factor model. It is still not designed for abrupt, discrete regime changes in the donor--treated mapping.
+
+Dynamic synthetic control addresses nonstationarity from a different angle, allowing effective donor alignment to vary in speed over time \citep{Cao2025}. Again, that is a real advance, but it is not the same as allowing the untreated mapping itself to switch across latent regimes.
+
+These papers clarify the gap. Existing synthetic control extensions relax \emph{some} restrictions on $m(\cdot)$, and Chernozhukov adds uncertainty quantification around a chosen $m(\cdot)$. But none directly integrates exact conformal validity with a regime-switching untreated law.
+
+\subsection{Nettasinghe et al.\ and exact conformal validity for HMMs}
+
+Nettasinghe et al.\ provide the missing probabilistic ingredient. They extend conformal prediction to Hidden Markov Models by \enquote{partition[ing] the non-exchangeable Markovian data from the HMM into exchangeable blocks} via de Finetti's theorem for Markov chains \citep{Nettasinghe2023}. The key point is not simply that they use blocks rather than points. The key point is that the blocks are exchangeable \emph{under the HMM structure}. This yields exact validity in a setting where ordinary exchangeability fails.
+
+The original paper is framed as constructing conformal sets for future hidden-state sequences given observed outcomes. But the same architecture is informative for the reverse direction as well. If one knows, or can condition on, a latent state path and if the emission law is identified and stable, then the latent state path also determines a law for future outcomes. In that sense, the HMM framework can be used not only to predict hidden states from outcomes, but also to predict outcomes from hidden states.
+
+That reversal is possible under three substantive conditions:
+
+\begin{enumerate}[label=(\roman*)]
+    \item \textbf{Emission identifiability:} the untreated conditional distribution of outcomes given latent state is identified from untreated data.
+    \item \textbf{Emission invariance:} under the untreated law, the conditional distribution of outcomes given latent state is stable over time.
+    \item \textbf{No post-treatment distortion of the untreated emission law:} treatment may change the realized outcome or the latent path, but the counterfactual untreated emission mechanism remains the same object being predicted.
+\end{enumerate}
+
+Under those conditions, one can pass from conformal sets over latent paths to conformal sets over untreated outcomes conditional on latent state. That observation is the bridge this proposal exploits.
+
+\section{Method}
+
+\subsection{Main idea}
+
+The proposed method integrates Chernozhukov's counterfactual conformal logic with Nettasinghe's exact-validity block permutation. The goal is to replace two restrictive ingredients of standard conformal synthetic control:
+
+\begin{enumerate}[label=\arabic*.]
+    \item a \emph{global} donor--treated prediction rule, and
+    \item \emph{time-label permutation} of residuals,
+\end{enumerate}
+
+with
+
+\begin{enumerate}[label=\arabic*.]
+    \item a \emph{latent-state-conditional} donor prediction rule, and
+    \item \emph{admissible block permutations} justified by partial exchangeability under the untreated HMM law.
+\end{enumerate}
+
+The intuition is that synthetic control should not force one set of donor weights to operate across all periods when the untreated world itself is switching across regimes. Instead, each latent regime should have its own untreated donor mapping, and uncertainty should be evaluated only against other blocks that are probabilistically equivalent under the same regime structure.
+
+\subsection{State-conditional counterfactual prediction}
+
+Let $X_t$ denote the latent untreated regime of the treated unit at time $t$. Rather than imposing one prediction rule
+\[
+Y_{0t}(0) \approx m(Y_{1t},\dots,Y_{Nt}),
+\]
+the method posits a family of state-conditional predictors
+\[
+Y_{0t}(0) \approx m_{X_t}(Y_{1t},\dots,Y_{Nt},Z_t),
+\]
+where $Z_t$ may include observed covariates or lags. Each regime has its own donor mapping. This is a stronger modeling assumption than ordinary synthetic control, because the latent state process and state-conditional emission law must exist and be learnable. But conditional on that structure being correct, it relaxes the restrictive requirement that one global donor combination remain valid for all times.
+
+The candidate untreated future now consists of two coupled objects:
+
+\begin{enumerate}[label=(\alph*)]
+    \item a candidate latent future path, and
+    \item the implied candidate untreated outcome path generated by the state-conditional predictor or emission law.
+\end{enumerate}
+
+\subsection{Conformal score and admissible permutations}
+
+For each candidate latent path and associated candidate untreated outcome path:
+
+\begin{enumerate}[label=\arabic*.]
+    \item complete the treated unit's panel under that untreated candidate;
+    \item evaluate the state-conditional donor predictor and compute residuals block by block;
+    \item partition the sequence into admissible exchangeable blocks as in Nettasinghe et al.;
+    \item compute a conformity score comparing the candidate future block to the historical untreated blocks under the allowed block permutations.
+\end{enumerate}
+
+A candidate is accepted if its score is not unusually extreme relative to the distribution of scores generated by admissible permutations. Unlike Chernozhukov's procedure, the exchange is not over arbitrary time labels. It is over blocks that are exchangeable under the latent Markov structure.
+
+\subsection{Causal justification}
+
+This proposal addresses two failures of ordinary SCM that Chernozhukov alone does not solve.
+
+First, it addresses regime-dependent untreated mappings. If the untreated treated--donor relationship changes discretely across latent states, then one global weight vector is misspecified even before one reaches the inference problem. A state-conditional predictor replaces global stability with \emph{piecewise stability conditional on regime}.
+
+Second, it addresses invalid residual exchange. Chernozhukov's residual time permutation is only approximately justified if untreated residuals are homogeneous enough across time. When residuals vary by latent regime, ordinary time permutation mixes non-comparable periods. The proposed method restores exact symmetry by restricting permutations to latent-state-admissible exchangeable blocks.
+
+\subsection{Conditions for exact validity}
+
+The proposed conformal set achieves exact finite-sample validity under a structured set of assumptions. The key claim is deliberately narrow.
+
+\begin{assumption}[Untreated latent law]
+In the absence of treatment, the latent state sequence of the treated unit follows a finite-state Markov law that is stable over time and compatible with the block-partition argument used by Nettasinghe et al.
+\end{assumption}
+
+\begin{assumption}[State-conditional untreated emission invariance]
+Conditional on latent state and donor information, the untreated distribution of the treated unit's outcome is stable over time. In particular, the emission or prediction rule used to map latent state and donor information into untreated outcomes is the same before and after treatment under the counterfactual untreated law.
+\end{assumption}
+
+\begin{assumption}[Correct admissible permutation class]
+The conformal score is evaluated only over block permutations that preserve the exchangeable block structure implied by the latent untreated law.
+\end{assumption}
+
+\begin{assumption}[State information]
+Either the latent future path is known, or candidate latent paths are evaluated within the conformal procedure so that the accepted set properly accounts for latent-state uncertainty.
+\end{assumption}
+
+Under these assumptions, exact validity follows from the HMM conformal argument, now applied to blocks of the latent untreated process and then mapped to outcomes through the stable emission law. In words:
+
+\begin{quote}
+Exact validity comes not from \emph{using blocks} by itself, but from using the \emph{right blocks}: blocks that are exchangeable under the untreated latent law.
+\end{quote}
+
+This also implies an important limitation. If one merely permutes contiguous residual blocks without proving partial exchangeability, one gets at best a dependence-respecting heuristic, not an exact theorem.
+
+\subsection{A proposition and toy example}
+
+The following toy example formalizes when the proposed method succeeds but classical SCM and time-permutation conformal SCM fail.
+
+\begin{proposition}[Regime-switching failure of fixed-weight SCM and time-permutation conformal inference]
+Suppose the untreated treated-unit outcome is generated by a two-state latent process $X_t \in \{A,B\}$ with the following state-conditional donor rule:
+\[
+Y_{0t}(0)=
+\begin{cases}
+Y_{1t}, & X_t=A,\\
+Y_{2t}, & X_t=B.
+\end{cases}
+\]
+Assume donor 1 and donor 2 are distinct, the latent regime changes over time, and the state-conditional rule is stable under the untreated law. Then:
+
+\begin{enumerate}[label=(\roman*)]
+    \item no single fixed donor-weight vector can recover the untreated path for all periods unless the donor series happen to satisfy a degenerate equality;
+    \item residuals from any fixed-weight SCM are regime-dependent, so arbitrary time-label permutation does not preserve their joint untreated law;
+    \item if the latent path is known and admissible permutations are restricted to exchangeable blocks preserving the Markov regime structure, then the state-conditional conformal procedure attains exact validity.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+For part (i), suppose a fixed-weight synthetic control with weights $(w,1-w)$ reproduces the untreated path in both regimes. Then in regime $A$ we require
+\[
+wY_{1t}+(1-w)Y_{2t}=Y_{1t},
+\]
+so $(1-w)(Y_{2t}-Y_{1t})=0$. Since donor 1 and donor 2 are distinct, this implies $w=1$. In regime $B$ the same argument implies $w=0$. Hence no single fixed weight vector works across both regimes.
+
+For part (ii), any fixed-weight misspecification induces residuals whose distribution depends on the latent state: when the true regime is $A$, the residual is driven by the gap between the fixed-weight predictor and donor 1; when the true regime is $B$, it is driven by the gap relative to donor 2. Therefore the untreated residual law is not invariant across time whenever the regime composition changes. Arbitrary time permutation mixes residuals from different laws and does not preserve the untreated joint distribution.
+
+For part (iii), if the latent path is known and the state-conditional donor rule is stable, then within each admissible exchangeable block the untreated law is unchanged by the Nettasinghe-style block permutations. The conformity score is therefore evaluated over a genuinely exchangeable randomization class, and exact conformal validity follows from the standard HMM-block argument.
+\end{proof}
+
+The toy example is intentionally simple, but it captures the core contribution. Ordinary SCM fails because one global donor mapping is false. Chernozhukov's conformal extension improves inference around that misspecified predictor, but exact validity is still unavailable because time-label permutations mix residuals from different latent laws. The proposed method works because it changes both the prediction rule and the permutation class.
+
+\subsection{Practical algorithm}
+
+A feasible implementation would proceed as follows.
+
+\begin{enumerate}[label=\arabic*.]
+    \item Estimate the latent-state model on untreated data, including donor information and any observed covariates.
+    \item Estimate state-conditional emission or donor-prediction rules.
+    \item For each candidate future latent path, generate the implied untreated outcome path.
+    \item Compute block residuals relative to the state-conditional predictor.
+    \item Construct a conformity score using only admissible exchangeable block permutations.
+    \item Accept all candidate paths whose scores are not rejected.
+    \item Project the accepted latent--outcome pairs into a conformal set for untreated outcomes and therefore treatment effects.
+\end{enumerate}
+
+Computationally, this exact procedure can become expensive as the future horizon grows. A natural extension, building on my STAT 538 final project, is to sample admissible permutations by Monte Carlo rather than enumerate them all. That would give an approximation theorem for the exact set rather than replace the exact-validity result itself.
+
+\section{Validation: Simulation Design}
+
+A simulation study should verify both the \emph{causal motivation} and the \emph{statistical guarantee}.
+
+\subsection{Data-generating process}
+
+Simulate panels with one treated unit and $N$ donors. Let the untreated treated-unit process follow a finite-state HMM with two or three latent states. For each state, define a distinct donor mapping:
+\[
+Y_{0t}(0)=m_{X_t}(Y_{1t},\dots,Y_{Nt})+\varepsilon_t.
+\]
+The donor mappings should differ enough that no single global donor weight vector can approximate all regimes well. The treatment begins at $T_0$ and affects post-treatment outcomes either by shifting the realized path away from the untreated emission law or by inducing a regime shift. Because the target is the untreated counterfactual, the untreated latent and emission law remain known in simulation.
+
+\subsection{Design dimensions}
+
+Vary the following features:
+
+\begin{enumerate}[label=(\alph*)]
+    \item \textbf{Regime persistence:} how sticky the latent states are.
+    \item \textbf{Regime separation:} how distinct the state-conditional donor mappings are.
+    \item \textbf{Pretreatment length:} short versus long $T_0$.
+    \item \textbf{Donor-pool size:} sparse versus rich donor information.
+    \item \textbf{Emission overlap:} how noisy outcomes are conditional on state.
+    \item \textbf{Latent-state observability:} known states versus inferred states.
+    \item \textbf{Misspecification:} violations of emission invariance or of the Markov structure.
+\end{enumerate}
+
+\subsection{Estimators to compare}
+
+Compare at least four estimators:
+
+\begin{enumerate}[label=\arabic*.]
+    \item Classical synthetic control with fixed donor weights.
+    \item Chernozhukov conformal inference layered on classical SCM.
+    \item A latent-factor benchmark such as generalized synthetic control.
+    \item The proposed latent-state conformal synthetic control.
+\end{enumerate}
+
+A useful fifth benchmark would be a heuristic block-permutation version that uses contiguous blocks without proving exchangeability. This would help show that exact validity comes from the latent-state structure, not merely from batching observations.
+
+\subsection{Evaluation criteria}
+
+The simulation should measure:
+
+\begin{enumerate}[label=(\roman*)]
+    \item \textbf{Coverage:} does the conformal set achieve nominal finite-sample coverage for the untreated path?
+    \item \textbf{Set size:} are valid sets reasonably informative?
+    \item \textbf{Point accuracy:} mean squared error of the center or point prediction.
+    \item \textbf{Boundary behavior:} false exclusion and false inclusion rates for candidate paths near the edge of the conformal set.
+    \item \textbf{Robustness to misspecification:} what happens when latent states are misclassified or emission invariance fails?
+    \item \textbf{Computation:} exact enumeration versus Monte Carlo approximation of admissible permutations.
+\end{enumerate}
+
+\subsection{What would count as success}
+
+The proposed method should outperform classical SCM and Chernozhukov conformal SCM in exactly the settings that motivate the paper:
+
+\begin{enumerate}[label=(\alph*)]
+    \item when the untreated donor--treated mapping is regime-dependent;
+    \item when one global donor weighting scheme is misspecified;
+    \item when residual distributions differ by latent regime, making time-label permutation invalid.
+\end{enumerate}
+
+In those settings, success means:
+\begin{itemize}
+    \item nominal coverage is approximately maintained when the exact-validity assumptions hold;
+    \item conformal sets are meaningfully tighter than those generated by naively widening uncertainty around a misspecified global predictor;
+    \item performance deteriorates in interpretable ways when the exact-validity assumptions are violated.
+\end{itemize}
+
+\section{Conclusion}
+
+The central claim of this proposal is modest but important. Chernozhukov, W\"uthrich, and Zhu solve the inference problem for synthetic-control-style counterfactual prediction, but they do not solve the problem of regime-dependent untreated structure. Nettasinghe et al.\ solve the validity problem for conformal inference under latent Markov dependence, but not in a counterfactual panel setting. The proposed paper bridges those literatures.
+
+Substantively, the paper argues that synthetic control should be understood as a restricted prediction problem whose identifying restrictions can be loosened by moving from global stability to latent-state-conditional stability. Methodologically, it argues that exact conformal validity can be recovered only by replacing arbitrary time-label permutations with admissible block permutations justified by partial exchangeability under the untreated latent law. If that argument succeeds, the contribution is real: it does not merely add blocks to conformal synthetic control, but replaces an approximate symmetry assumption with a structured exact one.
+
+\newpage
+\bibliographystyle{plainnat}
+\begin{thebibliography}{99}
+
+\bibitem[Abadie and Gardeazabal(2003)]{Abadie2003}
+Alberto Abadie and Javier Gardeazabal.
+\newblock The economic costs of conflict: A case study of the Basque Country.
+\newblock \emph{American Economic Review}, 93(1):113--132, 2003.
+
+\bibitem[Abadie et al.(2010)Abadie, Diamond, and Hainmueller]{Abadie2010}
+Alberto Abadie, Alexis Diamond, and Jens Hainmueller.
+\newblock Synthetic control methods for comparative case studies: Estimating the effect of California's tobacco control program.
+\newblock \emph{Journal of the American Statistical Association}, 105(490):493--505, 2010.
+
+\bibitem[Abadie and L'Hour(2021)]{AbadieLHour2021}
+Alberto Abadie and J\'er\'emy L'Hour.
+\newblock A penalized synthetic control estimator for disaggregated data.
+\newblock \emph{Journal of the American Statistical Association}, 116(536):1817--1834, 2021.
+
+\bibitem[Ben-Michael et al.(2021)Ben-Michael, Feller, and Rothstein]{BenMichael2021}
+Eli Ben-Michael, Avi Feller, and Jesse Rothstein.
+\newblock The augmented synthetic control method.
+\newblock \emph{Journal of the American Statistical Association}, 116(536):1789--1803, 2021.
+
+\bibitem[Cao and Chadefaux(2025)]{Cao2025}
+Jian Cao and Thomas Chadefaux.
+\newblock Dynamic synthetic controls: Accounting for varying speeds in comparative case studies.
+\newblock \emph{Political Analysis}, 33(1):18--31, 2025.
+
+\bibitem[Chernozhukov et al.(2021)Chernozhukov, W\"uthrich, and Zhu]{Chernozhukov2021}
+Victor Chernozhukov, Kaspar W\"uthrich, and Yinchu Zhu.
+\newblock An exact and robust conformal inference method for counterfactual and synthetic controls.
+\newblock \emph{Journal of the American Statistical Association}, 116(536):1849--1864, 2021.
+
+\bibitem[Ferman and Pinto(2021)]{Ferman2021}
+Bruno Ferman and Cristine Pinto.
+\newblock Synthetic controls with imperfect pretreatment fit.
+\newblock \emph{Quantitative Economics}, 12(4):1197--1221, 2021.
+
+\bibitem[Firpo and Possebom(2018)]{FirpoPossebom2018}
+Sergio Firpo and Vitor Possebom.
+\newblock Synthetic control method: Inference, sensitivity analysis and confidence sets.
+\newblock \emph{Journal of Causal Inference}, 6(2), 2018.
+
+\bibitem[Hahn and Shi(2017)]{Hahn2018}
+Jinyong Hahn and Ruoxuan Shi.
+\newblock Synthetic control and inference.
+\newblock \emph{Econometrics}, 5(4):52, 2017.
+
+\bibitem[Nettasinghe et al.(2023)Nettasinghe, Chatterjee, Tipireddy, and Halappanavar]{Nettasinghe2023}
+Buddhika Nettasinghe, Samrat Chatterjee, Ramakrishna Tipireddy, and Mahantesh Halappanavar.
+\newblock Extending conformal prediction to hidden Markov models with exact validity via de Finetti's theorem for Markov chains.
+\newblock In \emph{Proceedings of the 40th International Conference on Machine Learning}, PMLR 202, pages 25800--25824, 2023.
+
+\bibitem[Shao et al.(2022)Shao, Yin, Cai, and Valeri]{Shao2022}
+Jiacheng Shao, Meng Yin, Xiaofei Cai, and Linda Valeri.
+\newblock Generalized synthetic control with state-space model.
+\newblock In \emph{NeurIPS 2022 Workshop on Causal ML for Real-World Impact}, 2022.
+
+\bibitem[Xu(2017)]{Xu2017}
+Yiqing Xu.
+\newblock Generalized synthetic control method: Causal inference with interactive fixed effects models.
+\newblock \emph{Political Analysis}, 25(1):57--76, 2017.
+
+\end{thebibliography}
+
+\end{document}

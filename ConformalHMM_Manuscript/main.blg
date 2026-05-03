@@ -1,0 +1,50 @@
+This is BibTeX, Version 0.99e (TeX Live 2026)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: abbrvnat.bst
+Database file #1: research_proposal_scm_hmm.bib
+Warning--I didn't find a database entry for "abadie_economic_2003"
+Warning--I didn't find a database entry for "abadie_synthetic_2010"
+Warning--I didn't find a database entry for "xu_generalized_2017"
+You've used 9 entries,
+            2773 wiz_defined-function locations,
+            662 strings with 6375 characters,
+and the built_in function-call counts, 4537 in all, are:
+= -- 417
+> -- 232
+< -- 7
++ -- 78
+- -- 69
+* -- 381
+:= -- 672
+add.period$ -- 27
+call.type$ -- 9
+change.case$ -- 50
+chr.to.int$ -- 9
+cite$ -- 18
+duplicate$ -- 204
+empty$ -- 387
+format.name$ -- 86
+if$ -- 955
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 9
+newline$ -- 53
+num.names$ -- 36
+pop$ -- 93
+preamble$ -- 1
+purify$ -- 41
+quote$ -- 0
+skip$ -- 159
+stack$ -- 0
+substring$ -- 247
+swap$ -- 26
+text.length$ -- 2
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 99
+warning$ -- 0
+while$ -- 44
+width$ -- 0
+write$ -- 124
+(There were 3 warnings)

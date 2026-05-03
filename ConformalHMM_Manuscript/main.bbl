@@ -1,0 +1,53 @@
+\begin{thebibliography}{9}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Abadie and Gardeazabal(2003)]{Abadie2003}
+A.~Abadie and J.~Gardeazabal.
+\newblock The economic costs of conflict: A case study of the basque country.
+\newblock \emph{American Economic Review}, 93\penalty0 (1):\penalty0 113--132, 2003.
+
+\bibitem[Abadie and L'Hour(2021)]{AbadieLHour2021}
+A.~Abadie and J.~L'Hour.
+\newblock A penalized synthetic control estimator for disaggregated data.
+\newblock \emph{Journal of the American Statistical Association}, 116\penalty0 (536):\penalty0 1817--1834, 2021.
+
+\bibitem[Abadie et~al.(2010)Abadie, Diamond, and Hainmueller]{Abadie2010}
+A.~Abadie, A.~Diamond, and J.~Hainmueller.
+\newblock Synthetic control methods for comparative case studies: Estimating the effect of california's tobacco control program.
+\newblock \emph{Journal of the American Statistical Association}, 105\penalty0 (490):\penalty0 493--505, 2010.
+
+\bibitem[Cao and Chadefaux(2025)]{Cao2025}
+J.~Cao and T.~Chadefaux.
+\newblock Dynamic synthetic controls: Accounting for varying speeds in comparative case studies.
+\newblock \emph{Political Analysis}, 33\penalty0 (1):\penalty0 18--31, 2025.
+
+\bibitem[Chernozhukov et~al.(2021)Chernozhukov, W{\"u}thrich, and Zhu]{Chernozhukov2021}
+V.~Chernozhukov, K.~W{\"u}thrich, and Y.~Zhu.
+\newblock An exact and robust conformal inference method for counterfactual and synthetic controls.
+\newblock \emph{Journal of the American Statistical Association}, 116\penalty0 (536):\penalty0 1849--1864, 2021.
+
+\bibitem[Ferman and Pinto(2021)]{Ferman2021}
+B.~Ferman and C.~Pinto.
+\newblock Synthetic controls with imperfect pretreatment fit.
+\newblock \emph{Quantitative Economics}, 12\penalty0 (4):\penalty0 1197--1221, 2021.
+
+\bibitem[Nettasinghe et~al.(2023)Nettasinghe, Chatterjee, Tipireddy, and Halappanavar]{Nettasinghe2023}
+B.~Nettasinghe, S.~Chatterjee, R.~Tipireddy, and M.~Halappanavar.
+\newblock Extending conformal prediction to hidden markov models with exact validity via de finetti's theorem for markov chains.
+\newblock In \emph{Proceedings of the 40th International Conference on Machine Learning}, volume 202 of \emph{Proceedings of Machine Learning Research}, pages 25800--25824, 2023.
+
+\bibitem[Shao et~al.(2022)Shao, Yin, Cai, and Valeri]{Shao2022}
+J.~Shao, M.~Yin, X.~Cai, and L.~Valeri.
+\newblock Generalized synthetic control with state-space model.
+\newblock In \emph{NeurIPS 2022 Workshop on Causal ML for Real-World Impact}, 2022.
+
+\bibitem[Xu(2017)]{Xu2017}
+Y.~Xu.
+\newblock Generalized synthetic control method: Causal inference with interactive fixed effects models.
+\newblock \emph{Political Analysis}, 25\penalty0 (1):\penalty0 57--76, 2017.
+
+\end{thebibliography}

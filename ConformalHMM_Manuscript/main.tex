@@ -1,0 +1,366 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2024
+
+
+% ready for submission
+\usepackage[preprint]{neurips_2024}
+
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2024}
+
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+%     \usepackage[final]{neurips_2024}
+
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2024}
+
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage[]{natbib}
+\usepackage{amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsmath,amssymb,amsfonts}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\newtheorem{assumption}{Assumption}
+\newtheorem{proposition}{Proposition}
+
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+
+\setcitestyle{authoryear, open={(},close={)}}
+
+\title{Exact Latent-State Conformal Prediction for Synthetic Control}
+
+\author{
+  Andrew Wang \\
+  Department of Political Science\\
+  University of Washington\\
+  awang68@uw.edu
+}
+
+
+\begin{document}
+
+
+\maketitle
+
+
+\begin{abstract}
+  This paper argues that synthetic control methods can be understood as inherently nonparametric prediction problems where parametric structure is imposed for identification, not modeling. We outline three methods for predicting the counterfactual and find that they all fall under a general partially nonparametric framework, and in fact more recent papers are each pushing this framework closer to its theoretical limit. Specifically, each subsequent method further relaxes assumptions on the structure of how potential outcomes are predicted by donor units. We then propose a Kernel Regression view of the Synthetic Control Method that further highlights the nonparametric nature of this method.
+\end{abstract}
+
+
+\section{Introduction}
+
+Synthetic control methods estimate an untreated counterfactual for one or a small number of treated units by constructing a weighted combination of untreated donor units that fits the treated unit's pre-treatment trajectory \citep{Abadie2003,Abadie2010}. In the classical formulation, the synthetic control is a convex combination of donor units chosen to match pretreatment outcomes and covariates as closely as possible \citep{Abadie2010}. The appeal of this framework is that it converts a causal question into a prediction question: rather than modeling treatment assignment directly, one predicts what would have happened to the treated unit had treatment not occurred.
+
+The synthetic control method allows us to convert an inference question - "What is the causal effect of this treatment?" to a prediction question - "What would the trend for the measure of interest look like had the treatment not occurred?". Crucially, the validity of the estimated effect is not dependent on the specifics of how the counterfactual is synthesized. Instead, we offload structural assumptions about the structure of the underlying data-generating process to a simple set of conditions under which prediction accurately models the counterfactual.
+
+If we assume that no relevant variables are omitted, the structural assumptions can be compared as in Table \ref{tableassumptions}. The practical implication of these difference in assumptions is that, though nonparametric approaches are theoretically more capable of making predictions, they do not satisfy the necessary structural assumptions justify their use in synthetic controls. Therefore
+
+\begin{table}[h!]\label{tableassumptions}
+\centering
+\begin{tabular}{p{0.45\linewidth} | p{0.45\linewidth}}
+\textbf{Parametric Causal Models} & \textbf{Synthetic Control} \\\\
+
+(1a) Differences between treated and control units can be fully captured by the covariates.
+& (1b) Differences between treated and donor units can be fully captured by the covariates. \\\\
+
+(2a) The structural parameters governing outcome evolution do not change after treatment except through the treatment itself.
+& (2b) The relationship between the treated unit and the donor units—reflected in outcome trajectories—is stable over time (pre $\rightarrow$ post). \\\\
+
+(3a) The data-generating process follows a correctly specified functional form. 
+& (3b) The untreated potential outcomes of the treated unit lie can be predicted by donor outcomes.
+\end{tabular}
+\caption{Key assumptions}
+\end{table}
+
+This paper argues that synthetic control methods (SCMs) can be understood as inherently nonparametric prediction problems where parametric structure is imposed for identification, not modeling. I review the literature on existing SCMs to find two common shortcomings:
+
+\begin{itemize}
+    \item Instability of the donor-to-treated unit mapping, 
+    \item Invalid finite-sample uncertainty.    
+\end{itemize}
+
+\section{Literature Review}
+
+The synthetic control method was introduced by \citet{abadie_economic_2003} and formalized in \cite{abadie_synthetic_2010} as a way to estimate causal effects using a weighted average of donor units chosen to best reproduce the treated unit’s pre-treatment trajectory. Since then, however, critics have pointed out the instability of the donor-to-treated unit mapping across time, especially when the untreated relationship is shaped by latent shocks, evolving dynamics, or heterogeneous adjustment speeds rather than by a single time-invariant convex combination of donor units \citep{xu_generalized_2017, Ferman2021, Cao2025}. \citet{Cao2025}, for example, argue that standard synthetic control methods “do not account for the different speeds at which units respond to changes,” so that differing response speeds alone can induce bias in comparative case studies. \citep{Cao2025}
+
+\citet{xu_generalized_2017} formalizes synthetic control as a missing-data problem in which the untreated potential outcomes satisfy a latent factor model. By allowing treatment to correlate with unobserved unit and time heterogeneity in this way, this approach can capture richer latent common shocks. But it is unable to handle nonstationary relationships between the donor and treated units. \citet{Cao2025} addresses this by allowing effective donor alignment to vary in speed over time.
+
+\subsection{Synthetic Control as Linear Smoothers}
+
+The above methods \citep{xu_generalized_2017,Abadie2003,Abadie2010}, as well as more modern developments \citep{AbadieLHour2021, Cao2025,Shao2022} are all instances of linear smoothers that differ mainly in how they restrict the admissible class of prediction functions. Generally, all can be described as an instance of the following prediction problem:
+\[
+\hat Y_{it}(0)
+=
+m(X_{it}, Y_{-i,t}(0);\theta),
+\]
+where $m(\cdot)$ is a prediction rule, $Y_{-i,t}(0)$ denotes donor outcomes, $X_{it}$ observed covariates or lagged outcomes, and $\theta$ collects the identifying restrictions imposed to make the problem estimable.
+
+Crucially, $m(\cdot)$ is not assumed to have a known functional form a priori. Absent $\theta$, the problem is fundamentally nonparametric: many functions can interpolate pre-treatment outcomes but lead to different post-treatment extrapolations. In early formulations of synthetic control \citep{Abadie2003,Abadie2010}, the admissible class of functions $m(\cdot)$ was limited to the convex hull of donor unit combinations. \citet{AbadieLHour2021} expanded this to a regularized linear span, and subsequent extensions on SCMs further relax restrictions on $m(\cdot)$ in an attempt to account for more complex relationships between the donor and control unit. In many applications, the instability of the donor-treated mapping has therefore been substantially addressed at the level of point prediction by moving from static convex combinations toward richer latent-factor, penalized, and dynamically aligned prediction rules \citep{xu_generalized_2017,AbadieLHour2021,Cao2025}.
+
+However, these advances do not by themselves resolve the problem of valid finite-sample uncertainty quantification. Xu’s generalized synthetic control provides simulation-based uncertainty estimates under its interactive fixed-effects model, but those intervals remain model-based and therefore depend on the correctness of the latent-factor specification and resampling procedure, rather than on a finite-sample symmetry argument of the sort used in conformal inference \citep{xu_generalized_2017}. More broadly, the synthetic control literature has long relied on placebo comparisons, asymptotic approximations, or bootstrap-style procedures that are informative but do not in general deliver exact finite-sample coverage for the counterfactual path itself \citep{xu_generalized_2017,Chernozhukov2021}.
+
+\subsection{Conformal Prediction for Synthetic Control}
+
+To address this shortcoming, \citet{Chernozhukov2021} propose a conformal inference procedure for counterfactual and synthetic control settings that treats quantifying uncertainty as a prediction problem rather than as a product of the asymptotic properties of the linear smoother.
+
+Let unit $i=0$ be treated after period $T_0$, and let $t=T_0+1,\dots,T$ index the post-treatment periods. Consider a candidate untreated post-treatment path for the treated unit $y=(y_{T_0+1},\dots,y_T)$. Suppose untreated outcomes are predicted using some function class $m(\cdot)$ such as those presented above,
+\[
+\hat Y_{0t}(0;y)
+=
+m(X_{0t},Y_{-0,t}(0);\hat\theta(y)),
+\]
+where $\hat\theta(y)$ denotes the estimated prediction rule when the observed treated-unit outcome path is completed by $y$ in the post-treatment period. Given this donor-to-treated mapping under the untreated null, \citet{Chernozhukov2021} propose a conformal inference procedure constructing a finite-sample confidence set for the missing post-treatment counterfactual path by testing candidate paths one at a time.
+
+For each candidate path $y$, define the completed treated-unit series $\tilde Y_{0t}(y)$ and compute residuals
+\[
+\hat u_t(y)=\tilde Y_{0t}(y)-\hat Y_{0t}(0;y), \qquad t=1,\dots,T.
+\]
+The candidate path is then evaluated according to whether the post-treatment residuals it induces are unusually large relative to the residuals observed in untreated periods. Let $S(\hat u_1(y),\dots,\hat u_T(y))$ denote a test statistic that summarizes the extremeness of post-treatment residuals relative to the full residual sequence; for example, one may use the $\ell_q$ norm of the post-treatment residual block after suitable normalization. The intuition is simple: if $y$ could be a true untreated counterfactual path, then after fitting the prediction rule the residuals in post-treatment periods should behave like ordinary untreated residuals rather than like a structural break.
+
+Chernozhukov et al.\ operationalize this intuition by exploiting permutation symmetry across time indices under the null hypothesis that the candidate path is correct. Let $\Pi$ denote a set of admissible permutations of the time indices, and let
+\[
+p(y)
+=
+\frac{1}{|\Pi|}
+\sum_{\pi\in\Pi}
+\mathbf 1\!\left\{
+S\!\left(\pi\hat u(y)\right)\geq S\!\left(\hat u(y)\right)
+\right\}
+\]
+be the conformal $p$-value associated with candidate path $y$. The conformal confidence set for the untreated post-treatment path is then
+\[
+\mathcal C_{1-\alpha}
+=
+\left\{
+y\in\mathcal Y:
+p(y)>\alpha
+\right\}.
+\]
+Equivalently, the procedure inverts a family of hypothesis tests, retaining precisely those candidate counterfactual paths whose induced residual pattern is not unusually extreme under relabelings of untreated time periods.
+
+This approach addresses the weakness that, even when point prediction is flexible, we cannot provide an exact finite-sample confidence set for the missing counterfactual path by using asymptotic sampling distributions. Chernozhukov et al.\ claim to provide such a statement by constructing a confidence set from permutation-based conformity scores.
+
+However, this procedure still relies on an assumption that the residual process be sufficiently stable across untreated time periods--specifically, it requires that time labels are exchangeable (or equivalently, that residuals are exchangeable across time). However, if untreated periods differ systematically in volatility, prediction difficulty, or if residuals feature some block dependence then the residuals may not be exchangeable across time even when the candidate path is correct. In such cases, post-treatment residuals may appear unusually extreme not because the candidate counterfactual is false, but because they are being implicitly compared to untreated periods generated under a different data-generating regime. The resulting miscalibration can take the form of time heteroscedasticity in the residuals, or more general heterogeneity in the conformity score distribution.
+
+Thus, while conformal prediction for synthetic control solves an important inferential problem left open by the point-estimation literature, it leaves unresolved the possibility that untreated residuals are often only \emph{conditionally} stable---for example, stable within latent regimes but not across them. I posit that in the case of conditional stability, residuals can be modeled as emissions of a latent regime Markov process, and what is stable is the residual law conditional on regime. Conformal inference can then be done over regime-compatible residual sequences rather than over a globally stationary residual process, and we can recover exact finite-sample validity even under conditional stability.
+
+\section{Latent-Regime Block Conformal Inference}
+
+Let unit $i=0$ be treated after period $T_0$, and let donor units $i=1,\dots,N$ remain untreated. Let
+\[
+\hat Y_{0t}(0;y)=m(X_{0t},Y_{-0,t}(0);\hat\theta(y))
+\]
+denote a first-stage predictor, where $y=(y_{T_0+1},\dots,y_T)$ is a candidate untreated post-treatment path for the treated unit and $\hat\theta(y)$ denotes the estimated donor-to-treated mapping under that candidate completion. This can for instance be trained using the GSC method from \citet{Xu2017}, or Dynamic Synthetic Control from \citet{Cao2025}.
+
+Define the completed treated-unit series
+\[
+\tilde Y_{0t}(y)=
+\begin{cases}
+Y_{0t}, & t\le T_0,\\
+y_t, & t>T_0,
+\end{cases}
+\]
+and residuals
+\[
+\hat u_t(y)=\tilde Y_{0t}(y)-\hat Y_{0t}(0;y), \qquad t=1,\dots,T.
+\]
+Whereas \citet{Chernozhukov2021} assume that $u_t(y)$ is stationary, weakly dependent, and has invariant distribution under treatment, we consider a broad range of scenarios in which this is not the case.
+
+Specifically, suppose there exists a finite latent untreated regime process not captured by the untreated law $m(\cdot)$,
+\[
+Z_t \in \{1,\dots,K\},
+\]
+where the latent regime $Z_t$ evolves as a first-order Markov chain. We assume throughout this section:
+\begin{assumption}
+    The regime path $Z_{1:T}$ for the treated unit is known, or otherwise correctly specified.
+    \label{trueregime}
+\end{assumption}
+\begin{assumption}
+    Residuals are stable conditional on the latent regime, that is $\hat u_t(y) | Z_t = z \sim P_z$
+    \label{stability}
+\end{assumption}
+The interpretation is that regime $Z_t$ indexes the untreated environment generating the magnitude and persistence of prediction errors, rather than the outcome level itself. This regime should be able to capture far more heteroscedasticity or volatility-regime-switching than possible in donor-to-treated mappings even under highly flexible methods such as GSC \citep{Xu2017} or DSC \citep{Cao2025}. I therefore aim to provide a conformal prediction method when recognizing that residuals are only stable conditional on this latent regime.
+
+\subsection{The Residual Sequence as a Hidden Markov Model (HMMs)}
+
+The original contribution of \citet{Nettasinghe2023} is to obtain exact conformal validity in predicting hidden states of HMMs by partitioning a non-exchangeable sequence of discrete hidden states and outcomes into exchangeable blocks under the latent Markov structure. The authors conduct conformal prediction by permuting over these blocks rather than individual observations. Within each candidate future hidden-state path, a conformity score is computed by comparing the likelihood of the observed sequence under that path to the distribution of scores generated by all admissible block permutations. The conformal set is then formed from candidate hidden-state sequences whose conformity scores fall below the appropriate permutation-based quantile. This construction provides finite-sample exact coverage, even when temporal dependence would invalidate ordinary permutation approaches, because the permutation group is restricted to transformations that preserve the probabilistic symmetries implied by the HMM.
+
+The application to the synthetic control case is not immediately intuitive. We can frame the sequence of treated-unit residuals, along with the corresponding latent regime each time period, as an HMM. For a fixed candidate untreated post-treatment path \(y=(y_{T_0+1},\dots,y_T)\), if the untreated law \(m(\cdot)\) is correctly specified (that is, assumption \ref{trueregime} is satisfied) conditional on the latent regime path, then we have the completed residual sequence
+\[
+\hat u_{1:T}(y)=\big(\hat u_1(y),\dots,\hat u_T(y)\big).
+\]
+It follows from assumption \ref{stability} that this sequence is stable within-regime, though it may not be stationary. This permits us to treat the completed sequence as an HMM whose relevant non-exchangeability arises from the latent regime structure. We can then conduct conformal prediction on this sequence to find the conformal set of missing outcomes given a complete sequence of latent regimes.
+
+\subsection{Conformal Prediction on HMMs}
+
+Let \(\Pi(Z_{1:T})\) denote the set of admissible block permutations constructed as in \citet{Nettasinghe2023} from the known regime path. For each \(\pi \in \Pi(Z_{1:T})\), let
+\[
+\pi \hat u_{1:T}(y)
+\]
+denote the residual sequence obtained by applying the corresponding block permutation to the completed candidate sequence. Further let \(S(\cdot)\) be a conformity score defined on the full residual sequence.
+
+Rather than using conformal prediction to infer unknown hidden states from observed emissions, we treat the hidden-state path as known and use the block-exchangeable structure to test whether a candidate untreated outcome path yields a residual sequence compatible with the untreated HMM law. If the candidate path is the true untreated path, then its completed residual sequence is generated under the same conditional law as its admissible block permutations.
+
+One issue still remains, however. While it would be most reasonable to use residuals as outcomes, these residuals are not discrete. This in turn prevents block exchangeability by collapsing the entire sequence into a single block.
+
+I posit that we can use both residuals and their discrete mapping. By using a fixed partition of residuals trained on the pre-treatment residuals, we can discretize residuals in a way that inherits conditional stability. I then demonstrate that discretized residuals along with corresponding latent states can partition the residual sequence into exchangeable blocks, while continuous residuals can still be used to compute conformity scores.
+
+\subsection{Exchangeability and Discretized Residuals}
+
+The remaining practical issue is that \citet{Nettasinghe2023} work with discrete emissions, whereas the residuals \(\hat u_t(y)\) in our setting are generally continuous. To connect the continuous residual process to the HMM block construction, let
+\[
+b:\mathbb R \to \{1,\dots,B\}
+\]
+be a fixed discretization rule, or partition of the residual space into \(B\) bins. We assume this partition is chosen ex ante using untreated residuals only---for example, using quantile bins, \(k\)-means bins, or another fixed partition estimated from untreated donor residuals or from pre-treatment residuals of the treated unit under the untreated law. Crucially, once chosen, the map \(b(\cdot)\) is held fixed across all candidate paths \(y\).
+
+Define the discretized residuals
+\[
+\tilde u_t(y)=b\big(\hat u_t(y)\big), \qquad t=1,\dots,T.
+\]
+Because \(b\) is fixed, discretization preserves conditional stability. In particular, if
+\[
+\hat u_t(y)\mid Z_t=z \sim P_z,
+\]
+then
+\[
+\tilde u_t(y)\mid Z_t=z \sim Q_z,
+\qquad
+Q_z(A)=P_z\big(b^{-1}(A)\big),
+\]
+for any subset \(A \subseteq \{1,\dots,B\}\). That is, each regime-specific continuous law \(P_z\) induces a regime-specific discrete law \(Q_z\) on the residual bins. The discretized residual process therefore inherits the same conditional stability as the original residual process, but is now compatible with the discrete-emission HMM framework used to construct exchangeable blocks.
+
+Accordingly, for each candidate untreated path \(y\), we form the completed paired sequence
+\[
+\big\{(Z_t,\tilde u_t(y))\big\}_{t=1}^T.
+\]
+This sequence is used only to determine the admissible block decomposition and associated permutations. Intuitively, the latent state \(Z_t\) records the relevant untreated regime, while the discretized residual \(\tilde u_t(y)\) records which regime-specific residual category is realized. The resulting blocks are therefore defined by the joint latent-state/emission structure, exactly as in the HMM construction of \citet{Nettasinghe2023}.
+
+However, discretization is needed only for the combinatorial step that identifies the appropriate exchangeable blocks. It need not be imposed on the conformity score itself. Indeed, once an admissible block permutation \(\pi\) has been determined from the sequence of pairs \(\{(Z_t,\tilde u_t(y))\}_{t=1}^T\), we apply that same permutation to the original continuous residual sequence \(\hat u_{1:T}(y)\), and evaluate conformity using the non-discretized residuals:
+\[
+S_\pi(y)=S\big(\pi \hat u_{1:T}(y)\big).
+\]
+The discretized residuals are used to recover the correct exchangeability structure implied by the latent Markov regime process, while the continuous residuals retain the full magnitude information relevant for measuring conformity. In other words, discretization is used only to define the symmetry class, while scoring remains on the original scale of the prediction errors.
+
+%%%The procedure is therefore as follows. First, train a fixed residual partition \(b(\cdot)\) using untreated residuals only. Second, for a candidate untreated path \(y\), compute the continuous residual sequence \(\hat u_{1:T}(y)\) and its discretized counterpart \(\tilde u_{1:T}(y)\). Third, use the paired sequence \(\{(Z_t,\tilde u_t(y))\}_{t=1}^T\) to construct the admissible exchangeable blocks and the associated permutation set. Finally, apply each admissible block permutation to the original continuous residual sequence and compute the conformity score on the continuous scale. This yields a conformal procedure that respects the latent-regime exchangeability structure of the HMM while avoiding unnecessary information loss in the scoring step.
+
+Given the above, I propose Algorithm \ref{alg:lrbci}. Its key feature is the separation between \emph{block construction} and \emph{score evaluation}. We use the paired discrete sequence $\{(Z_t,\tilde u_t(y))\}_{t=1}^T$ only to identify the admissible exchangeable blocks and the associated permutation class. We then evaluate conformity after applying those admissible permutations to the original continuous residual sequence $\hat u_{1:T}(y)$. This preserves the latent-regime symmetry structure needed for blockwise conformal inference while avoiding unnecessary loss of information in the scoring step.
+
+Exact finite-sample validity follows from the same symmetry argument as in \citet{Nettasinghe2023}: conditional on the known regime path, the conformity score of the observed sequence is exchangeable with the conformity scores of the admissible permuted sequences. Hence,
+\[
+\Pr\big( Y_{0,T_0+1:T}(0) \in \mathcal C_{1-\alpha} \,\big|\, Z_{1:T} \big)
+\geq 1-\alpha,
+\]
+with equality up to the usual discreteness of the permutation distribution. In this sense, the method yields an exact conformal set for untreated outcomes by transporting the HMM block-exchangeability argument from latent-state prediction to counterfactual outcome prediction.
+
+\begin{algorithm}[t]
+\caption{Latent-Regime Block Conformal Inference via Continuous Residual Scoring}
+\label{alg:lrbci}
+\begin{algorithmic}[1]
+\Require Untreated donor data; treated unit pre-treatment outcomes $\{Y_{0t}\}_{t \le T_0}$; donor outcomes $\{Y_{it}(0)\}_{i=1}^N$; covariates $\{X_{it}\}$; first-stage predictor $m(\cdot;\hat\theta)$; fixed residual partition rule $b(\cdot)$ learned from untreated residuals only; candidate untreated post-treatment path $y=(y_{T_0+1},\dots,y_T)$; latent regime sequence $\{Z_t\}_{t=1}^T$ or donor-trained regime map; conformity score $T(\cdot)$; miscoverage level $\alpha$.
+\Ensure Acceptance or rejection of candidate path $y$, and hence a conformal set of admissible counterfactual paths.
+
+\State \textbf{Train fixed partition.}
+Using untreated residuals only, fit a residual partition rule $b:\mathbb{R}\to\{1,\dots,K\}$.
+Hold $b(\cdot)$ fixed throughout inference.
+
+\State \textbf{Form candidate-completed treated path.}
+Define
+\[
+\tilde Y_{0t}(y)=
+\begin{cases}
+Y_{0t}, & t\le T_0,\\
+y_t, & t>T_0.
+\end{cases}
+\]
+
+\State \textbf{Compute continuous residuals.}
+For each $t=1,\dots,T$, compute the untreated fitted value
+\[
+\hat Y_{0t}(0;y)=m(X_{0t},Y_{-0,t}(0);\hat\theta(y)),
+\]
+and the continuous residual
+\[
+\hat u_t(y)=\tilde Y_{0t}(y)-\hat Y_{0t}(0;y).
+\]
+
+\State \textbf{Discretize residuals for block construction only.}
+Set
+\[
+\tilde u_t(y)=b\big(\hat u_t(y)\big), \qquad t=1,\dots,T.
+\]
+
+\State \textbf{Construct regime-residual templates.}
+Form the paired sequence
+\[
+\bigl\{(Z_t,\tilde u_t(y))\bigr\}_{t=1}^T.
+\]
+Partition time into admissible exchangeable blocks using this paired sequence; equivalently, group indices into blocks that share the same latent-regime/discretized-residual template.
+
+\State \textbf{Enumerate admissible block permutations.}
+Let $\mathcal G(y)$ denote the set of all block permutations that preserve the admissible template structure induced by $\{(Z_t,\tilde u_t(y))\}_{t=1}^T$.
+
+\For{each $\pi \in \mathcal G(y)$}
+    \State Apply $\pi$ to the \emph{continuous} residual sequence $\hat u_{1:T}(y)$ to obtain $\pi\hat u_{1:T}(y)$.
+    \State Compute the conformity score $T(\pi\hat u_{1:T}(y))$ on the continuous scale.
+\EndFor
+
+\State \textbf{Compute permutation quantile.}
+Define the empirical permutation cdf
+\[
+F_y(t)=\frac{1}{|\mathcal G(y)|}\sum_{\pi\in\mathcal G(y)}
+\mathbf 1\!\left\{T(\pi\hat u_{1:T}(y))\le t\right\},
+\]
+and its $(1-\alpha)$-quantile
+\[
+q(y)=F_y^{-1}(1-\alpha).
+\]
+
+\State \textbf{Accept or reject candidate path.}
+Accept $y$ if
+\[
+T\bigl(\hat u_{1:T}(y)\bigr)\le q(y),
+\]
+and reject otherwise.
+
+\State \textbf{Return conformal set.}
+Collect all accepted candidate paths:
+\[
+\mathcal C_{1-\alpha}
+=
+\left\{
+y :
+T\bigl(\hat u_{1:T}(y)\bigr)\le q(y)
+\right\}.
+\]
+\end{algorithmic}
+\end{algorithm}
+
+\section{Conclusion}
+
+\newpage
+
+\bibliographystyle{abbrvnat}
+\bibliography{research_proposal_scm_hmm}
+
+\end{document}
