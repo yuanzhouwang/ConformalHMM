@@ -1,17 +1,30 @@
 name: Build LaTeX Document
-on: [push]
+on:
+  push:
+    paths:
+      - 'ConformalHMM_Manuscript/**'
+      - '.github/workflows/main.yml'
 jobs:
   build_latex:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Git repository
         uses: actions/checkout@v4
+
       - name: Compile LaTeX document
         uses: xu-cheng/latex-action@v3
         with:
           root_file: main.tex
-      - name: Upload PDF
+          working_directory: ConformalHMM_Manuscript
+
+      - name: Upload PDF as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PDF
-          path: main.pdf
+          name: paper-pdf
+          path: ConformalHMM_Manuscript/main.pdf
+
+      - name: Commit compiled PDF to repo
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'ci: recompile manuscript PDF [skip ci]'
+          file_pattern: 'ConformalHMM_Manuscript/main.pdf'
